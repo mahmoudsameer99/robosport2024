@@ -1,0 +1,799 @@
+#!/usr/bin/env python3
+'''Hello to the world from ev3dev.org'''
+# importing the ev3 libres
+from ev3dev2.motor import MediumMotor, LargeMotor,OUTPUT_A, OUTPUT_B,OUTPUT_D ,OUTPUT_C, SpeedPercent, MoveTank, MoveSteering
+from ev3dev2.sound import Sound
+import ev3dev2.motor as motor
+from ev3dev2.sensor.lego import GyroSensor, UltrasonicSensor, TouchSensor
+from pixycamev3.pixy2 import Pixy2
+from ev3dev2.sensor import INPUT_1,INPUT_4,INPUT_2,INPUT_3
+# importing extra libres
+from time import sleep
+import time
+import logging
+import random
+sound = Sound()
+pixy2 = Pixy2(port=1, i2c_address=0x54) # define the pixy2 camera.
+
+# Definition importint intgers.
+wait_duration = 120
+ball_loc = int()
+catcher_Motor = MediumMotor(OUTPUT_D)
+signtaure = 1# this intger use in the pixy code.
+ball_loc = int()
+class GPSRobot:
+    """ This class is responsible for determining the location of the robot."""
+    def __init__(self,d = 0,x = 30,y=0):
+        self.d = d
+        self.x = x
+        self.y =y
+
+class Robot:
+    """This class is responsible for the movement of the robot."""
+#Defining the robot variabled
+    def __init__(self):
+        self.r_Motor = MediumMotor(OUTPUT_C)
+        self.l_Motor = MediumMotor(OUTPUT_B)
+        self.r_Motor.POLARITY_INVERSED
+        self.drive_Base = MoveTank(OUTPUT_B, OUTPUT_C, motor_class=MediumMotor)
+        self.steerbase = MoveSteering(OUTPUT_B, OUTPUT_C, motor_class=MediumMotor)
+        self.r_Motor.POLARITY_INVERSED
+        self.gyro = GyroSensor(INPUT_4)
+        self.pixy2 = Pixy2(port=1, i2c_address=0x54) # define the pixy2 camera.
+        self.drive_Base.gyro = self.gyro
+        self.catcher_Motor = MediumMotor(OUTPUT_D)
+        self.hiter_Motor = LargeMotor(OUTPUT_A)
+        self.r_Motor.polarity = MediumMotor.POLARITY_INVERSED
+
+#A function that throws the ball when the robot discover it
+    def throw_ball(self):
+        """ this function make the robot throw the ball"""
+        self.hiter_Motor.on_for_degrees(100, 20, True,True)
+        self.catcher_Motor.on_for_degrees(100,-145,True,False)
+        sleep(0.01)
+        self.hiter_Motor.on_for_degrees(-100, 100,True,True)
+
+#A function that throws the ball when the robot discover it
+
+    def catch_ball(self):
+        """ this funtion make the robot catch the ball"""
+        self.catcher_Motor.on_for_degrees(100,145,True, True)
+
+
+    def open_cather(self):
+        """ this funtion make the robot catch the ball"""
+        self.catcher_Motor.on_for_degrees(-100,145,True, True)
+
+#A function that drive untill the robot hits a wall
+
+
+    def drive_to_wall(self, speed: int):
+       """This function makes the robot crawl up the wall"""
+       start_time = time.time()
+
+       while not self.drive_Base.is_stalled:
+           self.drive_Base.on(speed, speed)
+
+
+           if time.time() - start_time >= 4:
+              break
+
+       self.drive_Base.stop(brake=True)
+
+
+    def turn_hiter_back(self):
+        """This function makes the batter prepare to hit the ball."""
+        while self.hiter_Motor.is_stalled == False:
+            self.hiter_Motor.on(100, True, True)
+        else:
+            self.hiter_Motor.stop()
+
+    #A method that moves only one motor to make a long turn using the gyro sensor
+    def Long_Turn(self, speed : int, angle : int):
+        """Makes A Long Turn By Rotating One Wheel A Time"""
+        if angle > 0:
+            if speed > 0:
+                gyro_angle = self.gyro.angle
+                while (self.gyro.angle - gyro_angle) < angle:
+                    self.drive_Base.on(10, 0)
+                else:
+                    self.drive_Base.stop(brake = True)
+            if speed < 0:
+                gyro_angle = self.gyro.angle
+                while (self.gyro.angle - gyro_angle) < angle:
+                    self.drive_Base.on(-10, 0)
+                else:
+                    self.drive_Base.stop(brake = True)
+
+        if angle < 0:
+            if speed > 0:
+                gyro_angle = self.gyro.angle
+                while (self.gyro.angle - gyro_angle) > angle:
+                    self.drive_Base.on(0,10)
+                else:
+                    self.drive_Base.stop(brake = True)
+            if speed < 0:
+                gyro_angle = self.gyro.angle
+                while (self.gyro.angle - gyro_angle) < angle:
+                    self.drive_Base.on(-10, 0)
+                else:
+                    self.drive_Base.stop(brake = True)
+
+    #A method that spins the robot 90 degrees to the right using the gyro sensor
+    def spin_right_90_degrees(self):
+        """Spins 90 Degrees The Left Using The Gyro Sensor"""
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) < 85:
+            self.drive_Base.on(10, -10)
+        else:
+            self.drive_Base.stop()
+
+
+#A funtion that curve to the left when the robot start to search on the left side
+    def left_curve_to_wall_start(self,speed : int, curve_rate : int):
+        """ This function will
+          make the robot move left until it
+            crashes into the wall. """
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) > -10:
+            self.drive_Base.on(speed-(curve_rate*0.5), speed+curve_rate)
+        else:
+            self.drive_Base.stop(brake=True)
+
+#A funtion that curve to the right when the robot start to search on the left side
+    def right_curve_to_wall_start(self,speed : int, curve_rate : int):
+        """This function will
+        make the robot move right until it
+          crashes into the wall. """
+
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) < 30:
+            self.drive_Base.on(speed+curve_rate,speed-(curve_rate*0.5))
+        else:
+            self.drive_Base.stop(brake=True)
+
+
+
+#A function that moves the robot straight forward or backward
+    def move_straight(self,speed : int ,degrees : int,frvr : bool):
+        """This function makes the robot move forward either forever or for a certain number of degrees. """
+        if frvr ==True:
+            self.drive_Base.on(speed, speed)
+        else:
+            self.drive_Base.on_for_degrees(speed,speed,degrees,True,True)
+
+#A function that moves the robot 90 degrees to the right when the robot is crawling on the wall
+    def turn_90_degrees_right_to_wall(self):
+        """This function makes the robot turn to the right by 90 degrees  for the wall."""
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) < 85:
+            self.drive_Base.on(20,5)
+        else:
+            self.drive_Base.stop(brake=True)
+
+
+#A function that turnes the robot to a specific angle using the gyro
+    def turn_to_angle(self,target_angle : int, speed : int):
+        """ This function makes the robot turn to the right by a certain amount of degrees."""
+        current_angle = self.gyro.angle
+        if target_angle > 0:
+            while (self.gyro.angle - current_angle) < target_angle:
+                self.drive_Base.on(speed,-speed)
+            else:
+                self.drive_Base.stop(brake=True)
+        elif target_angle < 0:
+            while (self.gyro.angle - current_angle) > target_angle:
+                self.drive_Base.on(-speed,speed)
+            else:
+                self.drive_Base.stop(brake=True)
+
+
+#A method that drives the robot straight using a pd follower with gyro sensor for a limited time
+    def Gyro_Straight_Move_Degs(self, speed : int, degrees : int):
+        """Drives The Robot Very Straight Using A PD Follower With Gyro Sensor
+           (The Speed And Degrees Should Be Positive only)
+        """
+        kp = 1.2
+        ki = 0
+        kd = 0.5
+
+        target_angle = 0
+
+        integral = 0
+        last_error = 0
+
+
+        max_speed = speed
+
+        self.l_Motor.reset()
+        self.gyro.reset()
+        while self.l_Motor.degrees < degrees:
+            error = target_angle - self.gyro.angle
+
+            proportional = kp * error
+
+            integral += error
+
+            integral_term = ki * integral
+
+            derivative = error - last_error
+
+            derivative_term = kd * derivative
+
+            turn_rate = proportional + integral_term + derivative_term
+            turn_rate = max(-max_speed, min(max_speed, turn_rate))
+
+            left_motor_speed = SpeedPercent(max_speed + turn_rate)
+            right_motor_speed = SpeedPercent(max_speed - turn_rate)
+
+            self.l_Motor.on(left_motor_speed)
+            self.r_Motor.on(right_motor_speed)
+
+            last_error = error
+
+            sleep(0.01)
+        else:
+            self.drive_Base.stop(brake=False)
+
+
+
+#Same as "Gyro_Straight_Move_Degs" method but moves untill the robot is stalled
+    def Gyro_Straight_Move_Until_Stalled(self, speed : int):
+        """Drives The Robot Very Straight Using A PD Follower With Gyro Sensor
+           (The Speed Should Be Positive only)
+        """
+        kp = 1.2
+        ki = 0
+        kd = 0.5
+
+        target_angle = 0
+
+        integral = 0
+        last_error = 0
+
+
+        max_speed = speed
+
+        self.gyro.reset()
+        while self.drive_Base.is_stalled == False:
+            error = target_angle - self.gyro.angle
+
+            proportional = kp * error
+
+            integral += error
+
+            integral_term = ki * integral
+
+            derivative = error - last_error
+
+            derivative_term = kd * derivative
+
+            turn_rate = proportional + integral_term + derivative_term
+            turn_rate = max(-max_speed, min(max_speed, turn_rate))
+
+            left_motor_speed = SpeedPercent(max_speed + turn_rate)
+            right_motor_speed = SpeedPercent(max_speed - turn_rate)
+
+            self.l_Motor.on(left_motor_speed)
+            self.r_Motor.on(right_motor_speed)
+
+            last_error = error
+
+            sleep(0.01)
+        else:
+            self.drive_Base.stop(brake=False)
+
+
+    def spin_right(self):
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) < 85:
+            self.drive_Base.on(10, 0)
+        else:
+            self.drive_Base.stop()
+
+
+    def spin_left(self):
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) > -85:
+            self.drive_Base.on(-10,0)
+        else:
+            self.drive_Base.stop()
+
+
+#turn 90 degrees when the robot is crawling on the wall by left side
+    def turn_90_degrees_left_to_wall(self):
+        """This function makes the robot turn to the left by 90 degrees for the wall"""
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) > -85:
+            self.drive_Base.on(5,20)
+        else:
+            self.drive_Base.stop(brake=True)
+
+
+    def start_hiter(self):
+        """ This function puts the hiter in the starting position."""
+        while self.hiter_Motor.is_stalled == False:
+            self.hiter_Motor.on(100,True,True)
+        else:
+            self.hiter_Motor.stop()
+
+
+    #A method that moves the robot 90 degrees to the left using the gyro sensor
+    def spin_left_90_degrees(self):
+        """This function makes the robot spin 90 degrees to the right"""
+        gyro_angle = self.gyro.angle
+        while (self.gyro.angle - gyro_angle) > -85:
+            self.drive_Base.on(-10,10)
+        else:
+            self.drive_Base.stop(brake=True)
+
+    def home(self):
+      """this function will make the robot back to the start point"""
+
+      self.spin_left()
+      self.drive_to_wall(-30)
+      self.drive_Base.on_for_degrees(10,10,240,True,True)
+      self.spin_left_90_degrees()
+      self.drive_to_wall(-20)
+
+    def home_for_right(self):
+      """this function will make the robot back from the right area to the start point"""
+      self.drive_Base.on_for_degrees(-30,-30,165,True,True)
+      self.turn_90_degrees_right_to_wall()
+      self.drive_to_wall(-30)
+      self.drive_Base.on_for_degrees(20,20,350,True,True)
+      self.spin_right_90_degrees()
+      self.drive_to_wall(-20)
+
+    def home_r(self):
+      """this function will  make the robot back to the green squre
+         after catch the ball from left or middle"""
+      self.drive_Base.on_for_degrees(-30,-30,165,True,True)
+      self.spin_left_90_degrees()
+      self.drive_to_wall(-30)
+      self.drive_Base.on_for_degrees(20,20,200,True,True)
+      self.spin_left_90_degrees()
+      self.drive_to_wall(-20)
+
+    def home_for_right_r(self):
+      """this function will  make the robot back to the green squre
+      after catch the ball from right"""
+      self.drive_Base.on_for_degrees(-30,-30,165,True,True)
+      self.turn_90_degrees_left_to_wall()
+      self.drive_to_wall(-30)
+      self.drive_Base.on_for_degrees(20,20,350,True,True)
+      self.spin_left_90_degrees()
+      self.drive_to_wall(-20)
+
+#A method that drives the robot straight using a pd follower with gyro sensor for a limited time
+    def Gyro_Straight_Move_Degs(self, speed : int, degrees : int):
+        """Drives The Robot Very Straight Using A PD Follower With Gyro Sensor
+           (The Speed And Degrees Should Be Positive only)
+        """
+        self.r_Motor.reset()
+        gyro_angle = self.gyro.angle
+        while (self.r_Motor.degrees * -1) < degrees:
+            self.steerbase.on((0 - (self.gyro.angle - gyro_angle)) * 0.9, -speed)
+        else:
+            self.steerbase.stop(brake=True)
+
+my_robot = Robot()
+
+
+
+def search():
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 1)
+        if n_blocks == 1:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+            my_robot.start_hiter()
+            my_robot.Gyro_Straight_Move_Until_Stalled(40)
+            my_robot.home()
+            break
+
+# Definition pixy2 function
+def ball_location2(block):
+    """Determines the ball's location based on the x_center coordinate of each block."""
+    ball_locations = []
+    for bloc in block:
+        x_center = bloc.x_center
+        if 0<= x_center <= 118:
+            ball_locations.append(7)
+        elif 120 <= x_center <= 175:
+            ball_locations.append(9)
+        elif 180<= x_center <= 400:
+            ball_locations.append(8)
+        else:
+            ball_locations.append(-1)
+    return ball_locations
+import scan
+
+def side_chooser2(ball_locations):
+    """Determines which direction the robot should go based on ball locations."""
+    for location in ball_locations:
+        if location == 8:
+            scan.r_l()
+        elif location == 9:
+            scan.r_m()
+        elif location == 7:
+            scan.r_r()
+        elif location == -1:
+            my_robot.start_hiter()
+            my_robot.Gyro_Straight_Move_Until_Stalled(40)
+            my_robot.home()
+
+
+def r_m():
+    """this function make the robot catch the ball from the middle home area"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.drive_to_wall(30)
+    my_robot.catch_ball()
+    my_robot.home_r()
+    my_robot.move_straight(30,200,False)
+    sleep(0.3)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.move_straight(30,-200,False)
+
+
+def r_r():
+    """this function make the robot catch the ball from the right home area"""
+    my_robot.start_hiter()
+    my_robot.Long_Turn(10,-25)
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.move_straight(30, 600,False)
+    my_robot.Long_Turn(10,10)
+    my_robot.Gyro_Straight_Move_Until_Stalled(30)
+    my_robot.catch_ball()
+    my_robot.home()
+    my_robot.move_straight(30,200,False)
+    sleep(0.3)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.move_straight(30,-200,False)
+    my_robot.start_hiter()
+
+def r_l():
+    """this function make the robot catch the ball from the left home area"""
+    my_robot.start_hiter()
+    my_robot.right_curve_to_wall_start(20,30)
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.drive_to_wall(30)
+    my_robot.catch_ball()
+    my_robot.home_r()
+    my_robot.move_straight(30,200,False)
+    sleep(0.3)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.move_straight(30,-200,False)
+    my_robot.start_hiter()
+
+
+def search_in_left_side_game():
+    """this function will search in the left side for a ball"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.left_curve_to_wall_start(30, 40)
+    my_robot.drive_to_wall(50)
+    my_robot.catch_ball()
+    my_robot.steerbase.on_for_degrees(0,20,-340,True,True)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.turn_90_degrees_right_to_wall()
+    my_robot.drive_to_wall(-10)
+    my_robot.move_straight(20,230,False)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-20)
+    my_robot.Gyro_Straight_Move_Until_Stalled(40)
+    my_robot.home()
+    # while True:
+    #     n_blocks, block = pixy2.get_blocks(signtaure, 1)
+    #     if n_blocks == 1:
+    #       sleep(2)
+    #       ball_lo = ball_location2(block)
+    #       print(ball_lo)
+    #       side_chooser2(ball_lo)
+    #       break
+    #     sleep(0.1)  # Adjust sleep time as needed
+    #     if(n_blocks ==0):
+    #         my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+    #         my_robot.home()
+    #         break
+
+
+def search_in_the_middle_game():
+    """this function will make a liner search in the middle side"""
+    my_robot.start_hiter()
+    my_robot.Long_Turn(10, 50)
+    my_robot.Long_Turn(10, -40)
+    my_robot.Gyro_Straight_Move_Until_Stalled(60)
+    my_robot.catch_ball()
+    my_robot.move_straight(-30, 340,frvr=False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    sleep(0.5)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-30)
+    my_robot.drive_Base.on_for_degrees(20, 20, 230, True, True)
+    my_robot.spin_right_90_degrees()
+    sleep(0.5)
+    my_robot.drive_to_wall(-20)
+    my_robot.Gyro_Straight_Move_Until_Stalled(40)
+    my_robot.home()
+    # while True:
+    #     n_blocks, block = pixy2.get_blocks(signtaure, 1)
+    #     if n_blocks == 1:
+    #       sleep(2)
+    #       ball_lo = ball_location2(block)
+    #       print(ball_lo)
+    #       side_chooser2(ball_lo)
+    #       break
+    #     sleep(0.1)  # Adjust sleep time as needed
+    #     if(n_blocks ==0):
+    #        sleep(2)
+    #        my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+    #        my_robot.home()
+    #        break
+
+
+#A function that scan the right side of the robot half to check if there is any ball there
+def search_in_right_side_game():
+    """this function will make a liner search in the right side"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.right_curve_to_wall_start(20, 8)
+    my_robot.drive_to_wall(50)
+    my_robot.catch_ball()
+    my_robot.drive_Base.on_for_degrees(20,20,-340,True,True)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.turn_90_degrees_left_to_wall()
+    my_robot.drive_to_wall(-10)
+    my_robot.drive_Base.on_for_degrees(20,20,360,True,True)
+    my_robot.spin_left_90_degrees()
+    my_robot.drive_to_wall(-10)
+    my_robot.Gyro_Straight_Move_Until_Stalled(40)
+    my_robot.home()
+    # while True:
+    #     n_blocks, block = pixy2.get_blocks(signtaure, 1)
+    #     if n_blocks == 1:
+    #       sleep(2)
+    #       ball_lo = ball_location2(block)
+    #       print(ball_lo)
+    #       side_chooser2(ball_lo)
+    #       break
+    #     sleep(0.1)  # Adjust sleep time as needed
+    #     if(n_blocks ==0):
+    #        sleep(2)
+    #        my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+    #        my_robot.home()
+    #        break
+
+
+def search_in_middle_of_middle_side_game():
+    """this function will make a liner search in the middle of middle  side"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.Long_Turn(50)
+    my_robot.Long_Turn(-50)
+    my_robot.steerbase.on_for_degrees(0,20,600,True,True)
+    my_robot.catch_ball()
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.turn_90_degrees_right_to_wall()
+    my_robot.drive_to_wall(-30)
+    my_robot.move_straight(20,220,False)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-30)
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 4)
+        if n_blocks >0:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+           sleep(2)
+           my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+           my_robot.home()
+           break
+
+
+def search_in_middle_of_right_side_game():
+    """this function will make a liner search in the middle of right side"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.right_curve_to_wall_start(20,10)
+    my_robot.steerbase.on_for_degrees(0,20,600,True, True)
+    my_robot.catch_ball()
+    my_robot.drive_Base.on_for_degrees(-10, -10, 100, True, True)
+    my_robot.throw_ball()
+    my_robot.turn_90_degrees_left_to_wall()
+    my_robot.drive_to_wall(-20)
+    my_robot.drive_Base.on_for_degrees(20,20,350,True,True)
+    my_robot.spin_left_90_degrees()
+    my_robot.drive_to_wall(-20)
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 1)
+        if n_blocks == 1:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+           sleep(2)
+           my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+           my_robot.home()
+           break
+
+
+def search_in_middle_of_left_side_game():
+    """this function will make a liner search in the middle of lift side"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.turn_to_angle(-15,30)
+    my_robot.steerbase.on_for_degrees(0,20,600,True,True)
+    my_robot.catch_ball()
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.turn_90_degrees_right_to_wall()
+    my_robot.drive_to_wall(-10)
+    my_robot.move_straight(20,230,False)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-20)
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 1)
+        if n_blocks == 1:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+           sleep(2)
+           my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+           my_robot.home()
+           break
+
+
+def middle_thin_left():
+    """this function will make the robot throw the ball in middle thin left"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.steerbase.on_for_degrees(0,20,700,True,True)
+    my_robot.catch_ball()
+    my_robot.move_straight(20,-50,False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(100,-140,True,True)
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.left_curve_to_wall_start(30,40)
+    my_robot.drive_to_wall(30)
+    my_robot.catch_ball()
+    my_robot.move_straight(30,-300,False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.turn_90_degrees_right_to_wall()
+    my_robot.drive_to_wall(-10)
+    my_robot.move_straight(20,230,False)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-20)
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 1)
+        if n_blocks == 1:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+           sleep(2)
+           my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+           my_robot.home()
+           break
+
+
+def middle_thin_right():
+    """this function will make the robot throw the ball in middle thin left"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.steerbase.on_for_degrees(0,20,700,True,True)
+    my_robot.catch_ball()
+    my_robot.move_straight(30,-100,False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    sleep(0.5)
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.right_curve_to_wall_start(30,40)
+    my_robot.drive_to_wall(30)
+    my_robot.catch_ball()
+    my_robot.move_straight(30,-300,False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.turn_90_degrees_left_to_wall()
+    my_robot.drive_to_wall(-30)
+    my_robot.drive_Base.on_for_degrees(20,20,350,True,True)
+    my_robot.spin_left_90_degrees()
+    my_robot.drive_to_wall(-30)
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 1)
+        if n_blocks == 1:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+           sleep(2)
+           my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+           my_robot.home()
+           break
+
+
+def left_thin_middle():
+    """this function will make the robot throw the ball in left thin middle"""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,150,True,True)
+    my_robot.left_curve_to_wall_start(30,40)
+    my_robot.steerbase.on_for_degrees(0,20,700,True,True)
+    my_robot.catch_ball()
+    my_robot.move_straight(30,-100,False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.Long_Turn(20,50)
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100,200,True,True)
+    my_robot.move_straight(20,200,False)
+    my_robot.Long_Turn(-50)
+    my_robot.Gyro_Straight_Move_Until_Stalled(-30)
+    my_robot.catch_ball()
+    my_robot.move_straight(30,-300,False)
+    my_robot.throw_ball()
+    my_robot.hiter_Motor.on_for_degrees(-100,140,True,True)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-10)
+    my_robot.move_straight(20,230,False)
+    my_robot.spin_right_90_degrees()
+    my_robot.drive_to_wall(-20)
+    while True:
+        n_blocks, block = pixy2.get_blocks(signtaure, 1)
+        if n_blocks == 1:
+          sleep(2)
+          ball_lo = ball_location2(block)
+          print(ball_lo)
+          side_chooser2(ball_lo)
+          break
+        sleep(0.1)  # Adjust sleep time as needed
+        if(n_blocks ==0):
+           sleep(2)
+           my_robot.Gyro_Straight_Move_Until_Stalled(-40)
+           my_robot.home()
+           break
+
+
+def mission():
+   my_robot.gyro.reset()
+   my_robot.move_straight(20,800,False)
+   my_robot.catch_ball()
+   my_robot.move_straight(-10,150,False)
+   my_robot.throw_ball()
+   my_robot.hiter_Motor.on_for_degrees(100,-140,True,True)
+   my_robot.turn_to_angle(195, 10)
+   my_robot.move_straight(30,800,False)
+   my_robot.home()
+
