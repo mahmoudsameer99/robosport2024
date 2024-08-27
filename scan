@@ -1,0 +1,194 @@
+from Movement_Methods import Movement
+from models import Robot
+import models
+import random as rd
+from time import sleep
+from attacker import staker
+
+# Initialize objects
+attacker = staker()
+movement = Movement()
+my_robot = Robot()
+
+def go_home():
+    """Makes the robot go to the home position in all scans."""
+    movement.GyroSensor.reset()
+    movement.Gyro_Straight_Move_Until_Stalled(20)
+    movement.Long_Turn(-20, 85)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Drive_Straight_Degs(20, 400)
+    movement.Spin_90_Degrees_Right()
+    movement.Drive_Untill_Stalled(-10)
+    movement.Turn_Hiter_Back()
+
+def middle():
+    """Navigates to the middle area, catches a ball, and attacks."""
+    my_robot.turn_hiter_back()
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, 50)
+    movement.Long_Turn(20, -50)
+    movement.Gyro_Straight_Move_Degs(20, 700)
+    movement.Catch_Ball()
+    movement.Drive_Straight_Degs(-10, 150)
+    attacker.right_attake("home")
+    sleep(0.4)
+    movement.Turn_Hiter_Back()
+    movement.Drive_Straight_Degs(-10, 100)
+    movement.Long_Turn(20, -85)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(10, 300)
+    movement.Spin_90_Degrees_Left()
+    my_robot.drive_to_wall(-20)
+    models.search()
+
+def middle_of_left():
+    """Navigates to the middle of the left section, catches a ball, and attacks."""
+    my_robot.turn_hiter_back()
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, -10)
+    movement.Drive_Straight_Degs(30, 700)
+    movement.Catch_Ball()
+    movement.Drive_Straight_Degs(-20, 150)
+    movement.Turn(20, 5)
+    attacker.normal_atake("home")
+    sleep(0.1)
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, 85)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(10, 300)
+    movement.Spin_90_Degrees_Right()
+    my_robot.drive_to_wall(-20)
+    models.search()
+
+def middle_of_right():
+    """Navigates to the middle of the right section, catches a ball, and attacks."""
+    my_robot.turn_hiter_back()
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, 25)
+    movement.Drive_Straight_Degs(20, 500)
+    movement.Long_Turn(20, -15)
+    movement.Drive_Straight_Degs(20, 500)
+    movement.Catch_Ball()
+    attacker.normal_atake("home")
+    attacker.hiter_Motor.on_for_degrees(100, -100, True, True)
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, -90)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(20, 350)
+    movement.Spin_90_Degrees_Left()
+    my_robot.drive_to_wall(-20)
+    models.search()
+
+def full_middle():
+    """Navigates to the full middle area, catches a ball, and attacks."""
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, 50)
+    movement.Long_Turn(20, -50)
+    movement.Gyro_Straight_Move_Until_Stalled(50)
+    movement.Catch_Ball()
+    movement.Drive_Straight_Degs(-10, 300)
+    attacker.normal_atake("home")
+    sleep(0.4)
+    movement.Turn_Hiter_Back()
+    movement.Drive_Straight_Degs(-10, 100)
+    movement.Long_Turn(20, -85)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(10, 300)
+    movement.Spin_90_Degrees_Left()
+    my_robot.drive_to_wall(-20)
+    models.search()
+
+def full_left():
+    """Navigates to the full left area, catches a ball, and attacks."""
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, -30)
+    movement.Gyro_Straight_Move_Until_Stalled(50)
+    movement.Catch_Ball()
+    movement.Drive_Straight_Degs(-20, 300)
+    attacker.normal_atake("home")
+    sleep(0.4)
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, 85)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(10, 300)
+    movement.Spin_90_Degrees_Right()
+    my_robot.drive_to_wall(-20)
+    models.search()
+
+def full_right():
+    """Navigates to the full right area, catches a ball, and attacks."""
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, 15)
+    movement.Gyro_Straight_Move_Until_Stalled(50)
+    movement.Catch_Ball()
+    movement.Drive_Straight_Degs(-10, 350)
+    attacker.normal_atake("home")
+    movement.Turn_Hiter_Back()
+    movement.Long_Turn(20, -90)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(20, 350)
+    movement.Spin_90_Degrees_Left()
+    my_robot.drive_to_wall(-20)
+    models.search()
+
+def r_m():
+    """Catches the ball from the middle home area and attacks."""
+    my_robot.start_hiter()
+    my_robot.hiter_Motor.on_for_degrees(100, 150, True, True)
+    my_robot.drive_to_wall(30)
+    my_robot.catch_ball()
+    my_robot.home_r()
+    my_robot.move_straight(30, 200, False)
+    sleep(0.3)
+    attacker.right_attake("home")
+    my_robot.hiter_Motor.on_for_degrees(-100, 140, True, True)
+    my_robot.move_straight(50, -200, False)
+
+def r_r():
+    """Catches the ball from the right home area and attacks."""
+    my_robot.start_hiter()
+    my_robot.Long_Turn(20, -25)
+    my_robot.hiter_Motor.on_for_degrees(100, 150, True, True)
+    my_robot.move_straight(30, 600, False)
+    my_robot.Long_Turn(20, 10)
+    my_robot.Gyro_Straight_Move_Until_Stalled(30)
+    my_robot.catch_ball()
+    my_robot.home()
+    my_robot.move_straight(30, 200, False)
+    sleep(0.3)
+    attacker.normal_atake("home")
+    attacker.hiter_Motor.on_for_degrees(100, -100, True, True)
+    my_robot.move_straight(50, -200, False)
+    my_robot.start_hiter()
+
+def r_l():
+    """Catches the ball from the left home area and attacks."""
+    my_robot.start_hiter()
+    my_robot.right_curve_to_wall_start(20, 25)
+    my_robot.hiter_Motor.on_for_degrees(100, 150, True, True)
+    my_robot.drive_to_wall(30)
+    my_robot.catch_ball()
+    my_robot.home_r()
+    my_robot.move_straight(30, 200, False)
+    sleep(0.3)
+    attacker.normal_atake("home")
+    attacker.hiter_Motor.on_for_degrees(100, -100, True, True)
+    my_robot.move_straight(50, -200, False)
+    my_robot.start_hiter()
+
+def ddle():
+    """Catches the ball from the middle home area and attacks."""
+    movement.Turn_Hiter_Back()
+    movement.Gyro_Straight_Move_Until_Stalled(30)
+    movement.Catch_Ball()
+    movement.Drive_Straight_Degs(-10, 300)
+    attacker.normal_atake("home")
+    sleep(0.4)
+    movement.Turn_Hiter_Back()
+    movement.Drive_Straight_Degs(-10, 100)
+    movement.Long_Turn(20, -85)
+    movement.Drive_Untill_Stalled(-20)
+    movement.Gyro_Straight_Move_Degs(10, 300)
+    movement.Spin_90_Degrees_Left()
+    my_robot.drive_to_wall(-20)
+    models.search()
