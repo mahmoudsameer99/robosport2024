@@ -1,114 +1,80 @@
 #!/usr/bin/env python3
 '''Hello to the world from ev3dev.org'''
 
-# Import necessary libraries
+# Import libraries
 from pixycamev3.pixy2 import Pixy2
 from ev3dev2.motor import MediumMotor, LargeMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D, MoveSteering
 from ev3dev2.sound import Sound
-import ev3dev2.motor as motor
 from ev3dev2.sensor.lego import GyroSensor, TouchSensor
-from ev3dev2.sensor import INPUT_1, INPUT_3, INPUT_4
+from ev3dev2.sensor import INPUT_1, INPUT_4, INPUT_2, INPUT_3
 from time import sleep
 import time
-import random as rd
-
-# Initialize sound for notifications
-sound = Sound()
-
-# Import custom modules
+import scan
+from Movement_Methods import Movement
 from models import Robot
 import models
-from Movement_Methods import Movement
-import scan
-from attacker import staker
+from attacker import Staker
 
-# Create instances of custom classes
+# Initialize objects
+sound = Sound()
 my_robot = Robot()
 movement = Movement()
-star = staker()
+staker = Staker()
+pixy2 = Pixy2(port=1, i2c_address=0x54)  # Define the Pixy2 camera
 
 # Set up motors and sensors
-left_Motor = MediumMotor(OUTPUT_B)
-right_Motor = MediumMotor(OUTPUT_C)
-catcher_Motor = MediumMotor(OUTPUT_D)  # Motor for catching balls
-hiter_Motor = LargeMotor(OUTPUT_A)  # Motor for hitting balls
+left_motor = MediumMotor(OUTPUT_B)
+right_motor = MediumMotor(OUTPUT_C)
+catcher_motor = MediumMotor(OUTPUT_D)  # Motor responsible for catching balls
+hiter_motor = LargeMotor(OUTPUT_A)  # Motor responsible for hitting balls
+right_motor.polarity = MediumMotor.POLARITY_INVERSED
+gyro = GyroSensor(INPUT_4)  # Gyro sensor
+touch = TouchSensor(INPUT_3)
+gyro.reset()  # Reset gyro readings
+driver = MoveSteering(OUTPUT_B, OUTPUT_C, motor_class=MediumMotor)  # Drive base
+driver.gyro = gyro  # Gyro sensor for the driver
 
-# Reverse polarity for the right motor
-right_Motor.polarity = MediumMotor.POLARITY_INVERSED
-
-# Initialize Pixy2 camera
-pixy2 = Pixy2(port=1, i2c_address=0x54)
-
-# Initialize sensors
-gyro = GyroSensor(INPUT_4)  # Gyro sensor for orientation
-touch = TouchSensor(INPUT_3)  # Touch sensor for input
-
-# Reset gyro readings
-gyro.reset()
-
-# Define drive base using steering
-driver = MoveSteering(OUTPUT_B, OUTPUT_C, motor_class=MediumMotor)
-driver.gyro = GyroSensor(INPUT_4)  # Set gyro for the driver
-
-# Constants and variables
+# Define important integers
 wait_duration = 120  # Timer duration in seconds
-start_time = time.time()  # Start time for timing operations
-signtaure = 1  # Identifier used for Pixy2 blocks
-ball_loc = int()  # Variable to store ball location index
-now = int()  # Variable to store current time
-check = True  # Flag for checking conditions
-purple_ball = bool  # Variable for detecting purple ball (unused in the script)
-s = 0  # State variable for touch sensor handling
+signature = 1  # Pixy signature
 
-# Function to determine ball location based on block coordinates
-def ball_location(blocks):
-    """
-    Determines the ball's location based on the x_center and y_center coordinates of each block.
-
-    Args:
-    blocks (list): A list of objects where each object has `x_center` and `y_center` attributes.
-
-    Returns:
-    list: A list of integers representing the location index for each block.
-    """
-    ball_locs = []
+def ball_location(blocks, color):
+    """Identify the location of the balls based on their coordinates."""
     ranges = [
-        (50, 145, 0, 60, 0),  # Location 0: x: 50-145, y: 0-60
-        (150, 185, 0, 60, 1), # Location 1: x: 150-185, y: 0-60
-        (190, 400, 0, 60, 2), # Location 2: x: 190-400, y: 0-60
-        (50, 140, 65, 140, 3),# Location 3: x: 50-140, y: 65-140
-        (150, 185, 65, 140, 4),# Location 4: x: 150-185, y: 65-140
-        (190, 400, 65, 140, 5) # Location 5: x: 190-400, y: 65-140
+        (50, 145, 0, 60, 0),  # Location 0
+        (150, 185, 0, 60, 1), # Location 1
+        (190, 400, 0, 60, 2), # Location 2
+        (50, 140, 65, 140, 3),# Location 3
+        (150, 185, 65, 140, 4),# Location 4
+        (190, 400, 65, 140, 5) # Location 5
     ]
+    ball_locs = []
     for block in blocks:
         x_center = block.x_center
         y_center = block.y_center
-        # Determine the location index based on the block's coordinates
         loc = next((index for x_min, x_max, y_min, y_max, index in ranges
                     if x_min <= x_center <= x_max and y_min <= y_center <= y_max), -1)
-        ball_locs.append(loc)  # Add the location index to the list
+        ball_locs.append(loc)
     return ball_locs
 
-# Function to choose a search direction based on ball locations
 def side_chooser(ball_locs):
-    """Chooses the direction based on ball locations, avoiding duplicates."""
-    unique_ball_locs = set(ball_locs)  # Remove duplicates by converting to a set
+    """Choose and execute actions based on ball locations."""
+    unique_ball_locs = set(ball_locs)
     search_functions = {
-        0: scan.full_left,        # Location 0 --> Search in the left side game
-        1: scan.full_middle,      # Location 1 --> Search in the middle game
-        2: scan.full_right,       # Location 2 --> Search in the right side game
-        3: scan.middle_of_left,   # Location 3 --> Search in the middle of the left side game
-        4: scan.middle,           # Location 4 --> Search in the middle of the middle side game
-        5: scan.middle_of_right   # Location 5 --> Search in the middle of the right side game
+        0: scan.full_left,
+        1: scan.full_middle,
+        2: scan.full_right,
+        3: scan.middle_of_left,
+        4: scan.middle,
+        5: scan.middle_of_right
     }
     for ball_loc in unique_ball_locs:
         search_func = search_functions.get(ball_loc)
         if search_func:
-            search_func()  # Call the appropriate search function
+            search_func()
 
-# Function to decide the action based on ball locations
 def besties(ball_locs):
-    """Decides the action based on ball locations."""
+    """Determine actions when there are orange and purple balls in specific locations."""
     if 4 in ball_locs:
         if 0 in ball_locs:
             models.middle_thin_left()
@@ -119,34 +85,76 @@ def besties(ball_locs):
     else:
         side_chooser(ball_locs)
 
-def main():
-    """Main loop to detect balls and decide actions."""
+def detect_purple_ball():
+    """Detect purple balls using Pixy2 camera."""
+    nr_blocks, blocks = pixy2.get_blocks(2, 4)
+    purple_ball_locs = []
+    for block in blocks:
+        purple_ball_locs.extend(ball_location([block], 'purple'))
+    return purple_ball_locs
+
+def side_chooser_p(ball_locs):
+    """Choose actions based on the detected purple ball locations."""
+    unique_ball_locs = set(ball_locs)
+    search_functions = {
+        0: scan.go_to_pp_ball_full_left,
+        1: scan.get_pp_ball_full_middle,
+        2: scan.go_to_pp_bal_full_right,
+        3: scan.go_home_left_pp_ball,
+        4: scan.get_pp_ball_middle,
+        5: scan.go_home_right_pp_ball
+    }
+    for ball_loc in unique_ball_locs:
+        search_func = search_functions.get(ball_loc)
+        if search_func:
+            search_func()
+
+def break_them(ball_locs):
+    """Handle interactions with both purple and orange balls."""
+    unique_ball_locs = set(ball_locs)
+    search_functions = {
+        0: scan.full_left_pp_and_o_ball,
+        1: scan.full_middle_pp_and_o_ball,
+        2: scan.full_right_pp_and_o_ball,
+        3: scan.left_pp_and_o_ball,
+        4: scan.middle_pp_and_o_ball,
+        5: scan.right_pp_and_o_ball
+    }
+    for ball_loc in unique_ball_locs:
+        search_func = search_functions.get(ball_loc)
+        if search_func:
+            search_func()
+
+def scan_process():
+    """Main scanning process for detecting and interacting with balls."""
+    start_time = time.time()
     while True:
-        sleep(3)  # Wait for 3 seconds
-        nr_blocks, blocks = pixy2.get_blocks(signtaure, 4)  # Get blocks from Pixy2
-        if nr_blocks > 0:  # Check if any blocks are detected
-            x_center = blocks[0].x_center
-            y_center = blocks[0].y_center
-            print(x_center)  # Print x coordinate of the first block
-            print(y_center)  # Print y coordinate of the first block
-            ball_locs = ball_location(blocks)  # Determine ball locations
+        elapsed_time = time.time() - start_time
+        if elapsed_time > 120:  # Stop after 2 minutes
+            print("Scan duration exceeded 2 minutes. Stopping.")
+            break
 
-            print(ball_locs)  # Print detected ball locations
-            if nr_blocks == 1 or nr_blocks >= 3:
-                side_chooser(ball_locs)  # Choose side to search if 1 or 3+ balls are detected
-            elif nr_blocks == 2:
-                besties(ball_locs)  # Decide action if exactly 2 balls are detected
+        sleep(3)
+        purple_ball_locs = detect_purple_ball()
+        print("Purple Ball Locations:", purple_ball_locs)
+        
+        nr_blocks, blocks = pixy2.get_blocks(signature, 4)
+        if nr_blocks > 0:
+            ball_locs = ball_location(blocks, 'orange')
+            print("Orange Ball Locations:", ball_locs)
+
+            if set(purple_ball_locs) & set(ball_locs):
+                break_them(purple_ball_locs)
+                print("A purple ball is at the same location as an orange ball.")
+            else:
+                side_chooser_p(purple_ball_locs)
+                if nr_blocks == 1 or nr_blocks >= 3:
+                    side_chooser(ball_locs)
+                elif nr_blocks == 2:
+                    besties(ball_locs)
         else:
-            print("no tennis ball detected")  # Print message if no balls are detected
+            print("No ball detected")
 
-# Main execution starts here
-star.normal_atake("home")  # Initial action by the attacker
+if __name__ == "__main__":
+    scan_process()
 
-while True:
-    if touch.is_pressed:
-        if s == 0:
-            scan.ddle()  # Perform some scanning action
-            s = 1
-        main()  # Run the main loop if the touch sensor is pressed
-    else:
-        print("touch it")  # Prompt to touch the sensor if not pressed
