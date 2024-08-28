@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+'''Hello to the world from ev3dev.org'''
+
+# Importing the required libraries
+from ev3dev2.motor import MediumMotor, LargeMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D, MoveTank, MoveSteering
+from ev3dev2.sound import Sound
+from ev3dev2.sensor.lego import GyroSensor
+from pixycamev3.pixy2 import Pixy2
+from time import sleep
+import models
+from Movement_Methods import Movement
+
+# Initialize sound and Pixy2 camera
+sound = Sound()
+pixy2 = Pixy2(port=1, i2c_address=0x54)
+
+# Initialize the robot and movement objects
+my_robot = models.Robot()
+movement = Movement()
+
+class Staker:
+    def __init__(self):
+        # Initialize motors
+        self.r_Motor = MediumMotor(OUTPUT_C)
+        self.l_Motor = MediumMotor(OUTPUT_B)
+        self.catcher_Motor = MediumMotor(OUTPUT_D)
+        self.hiter_Motor = LargeMotor(OUTPUT_A)
+        
+        # Initialize drive base and steerbase
+        self.drive_Base = MoveTank(OUTPUT_B, OUTPUT_C, motor_class=MediumMotor)
+        self.steerbase = MoveSteering(OUTPUT_B, OUTPUT_C, motor_class=MediumMotor)
+        
+        # Set motor polarities
+        self.r_Motor.polarity = MediumMotor.POLARITY_INVERSED
+        self.hiter_Motor._max_speed = 600
+        
+        # Initialize sensors
+        self.gyro = GyroSensor(INPUT_4)
+        self.pixy2 = Pixy2(port=1, i2c_address=0x54)
+        self.drive_Base.gyro = self.gyro
+
+    def _atake(self, your_place: str, left_turn: bool = False, right_turn: bool = False):
+        # Common actions for taking the ball
+        self.hiter_Motor.on_for_degrees(100, 20, True, True)
+        self.catcher_Motor.on_for_degrees(100, -200, True, False)
+        sleep(0.2)
+        
+        # Adjust based on place and direction
+        if your_place == "home":
+            self.hiter_Motor.on_for_degrees(100, -100, True, True)
+        elif your_place == "middle":
+            self.hiter_Motor.on_for_degrees(75, -100, True, True)
+        elif your_place == "close":
+            self.hiter_Motor.on_for_degrees(50, -100, True, True)
+        
+        # Turn if needed
+        if left_turn:
+            my_robot.turn_to_angle(-5, 10)
+        elif right_turn:
+            movement.Long_Turn(10, 10)
+
+    def normal_atake(self, your_place: str):
+        self._atake(your_place)
+
+    def left_atake(self, your_place: str):
+        self._atake(your_place, left_turn=True)
+
+    def right_attake(self, your_place: str):
+        self._atake(your_place, right_turn=True)
